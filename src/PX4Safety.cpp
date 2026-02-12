@@ -11,10 +11,11 @@ namespace px4_safety_lib {
 
     void PX4Safety::initialize(rclcpp::Node *set_node) {
 
-        RCLCPP_WARN(node_->get_logger(), "Initializing PX4 safety library.");
-
         // set node passed from parent node
         node_ = set_node;
+
+        RCLCPP_WARN(node_->get_logger(), "Initializing PX4 safety library.");
+
 
         init_parameters();
 
@@ -245,6 +246,7 @@ namespace px4_safety_lib {
         cmd_vel_out.angular.z = cmd_vel_in.angular.z;
 
         //Return the safe velocity command to the controller
+        RCLCPP_INFO(node_->get_logger(), "CMD_VEL_SAFE: %.3f, %.3f", cmd_vel_out.linear.x, cmd_vel_out.linear.y);
         return cmd_vel_out;
     }
 
@@ -262,8 +264,8 @@ namespace px4_safety_lib {
 
         //Precompute post scales
         geometry_msgs::msg::Vector3 obs_scale;
-        obs_scale.x = obs_scale.y = rho_min_obs_;
-        obs_scale.z = 5.0;
+        obs_scale.x = obs_scale.y = 1.0;
+        obs_scale.z = 20.0;
 
         rclcpp::Time now = node_->get_clock()->now();
 
