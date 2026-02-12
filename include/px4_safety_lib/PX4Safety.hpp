@@ -47,6 +47,11 @@ namespace px4_safety_lib {
         void obstacle_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg, int obs_id);
         void publish_obs_viz();
 
+
+        // init functions
+        void init_parameters();
+        void visualize_obstacles();
+
     public:
     	PX4Safety();
         ~PX4Safety();

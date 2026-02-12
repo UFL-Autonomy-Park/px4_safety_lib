@@ -10,128 +10,20 @@ namespace px4_safety_lib {
     }
 
     void PX4Safety::initialize(rclcpp::Node *set_node) {
-        //Set the node so we can pub/sub
-        node_ = set_node;
 
-        //Get node parameters
         RCLCPP_WARN(node_->get_logger(), "Initializing PX4 safety library.");
 
-        //Get safety parameters from ros params
-        // geometry_msgs::msg::Point fence_min, fence_max;
-        // double fence_a, fence_b, fence_p;
-        // double obs_a, obs_b, obs_p;
-        node_->declare_parameter("safety.min_x", 0.0);
-        node_->declare_parameter("safety.max_x", 0.0);
-        node_->declare_parameter("safety.min_y", 0.0);
-        node_->declare_parameter("safety.max_y", 0.0);
-        node_->declare_parameter("safety.min_z", 0.0);
-        node_->declare_parameter("safety.max_z", 0.0);
+        // set node passed from parent node
+        node_ = set_node;
 
-        node_->declare_parameter("safety.fence_a", 0.0);
-        node_->declare_parameter("safety.fence_b", 0.0);
-        node_->declare_parameter("safety.fence_p", 0.0);
-        node_->declare_parameter("safety.obs_a", 0.0);
-        node_->declare_parameter("safety.obs_b", 0.0);
-        node_->declare_parameter("safety.obs_p", 0.0);
+        init_parameters();
 
-        if (
-            node_->get_parameter("safety.min_x", fence_min_.x) &&
-            node_->get_parameter("safety.max_x", fence_max_.x) && 
-            node_->get_parameter("safety.min_y", fence_min_.y) && 
-            node_->get_parameter("safety.max_y", fence_max_.y) && 
-            node_->get_parameter("safety.min_z", fence_min_.z) &&
-            node_->get_parameter("safety.max_z", fence_max_.z) &&
-            node_->get_parameter("safety.fence_a", fence_a_) && 
-            node_->get_parameter("safety.fence_b", fence_b_) && 
-            node_->get_parameter("safety.fence_p", fence_p_) && 
-            node_->get_parameter("safety.obs_a", obs_a_) &&
-            node_->get_parameter("safety.obs_b", obs_b_) && 
-            node_->get_parameter("safety.obs_p", obs_p_)
-        ) {
-            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)", 
-                fence_min_.x, fence_max_.x, fence_min_.y, fence_max_.y, fence_min_.z, fence_max_.z);
-            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Safety influence gains set to: Fence=(%.4f, %.4f, %.4f), Obstacle=(%.4f, %.4f, %.4f)", 
-                fence_a_, fence_b_, fence_p_, obs_a_, obs_b_, obs_p_);
-        } else {
-            RCLCPP_ERROR(node_->get_logger(), "(PX4Safety) Safety parameters not set. Exiting.");
-            rclcpp::shutdown();
-            return; 
-        }
+        if (enable_viz_ && obstacles_.size() > 0) 
+            visualize_obstacles();
 
         //Compute rho_min (activation distance)
         rho_min_fence_ = fence_p_*(1+fence_b_)/fence_b_;
         rho_min_obs_ = obs_p_*(1+obs_b_)/obs_b_;
-
-        //Get list of obstacles for collision avoidance
-        // std::vector<std::string> empty_vect;
-        // node_->declare_parameter("obstacles", empty_vect);
-        // if (node_->get_parameter("obstacles", obstacles_)) {
-        //     std::string obstacle_str;
-        //     geometry_msgs::msg::Pose empty_pose;
-        //     for (int i = 0; i < (int)obstacles_.size(); i++) {
-        //         obstacle_str.append(obstacles_[i]);
-
-        //         if (i < (int)obstacles_.size()-1) {
-        //             obstacle_str.append(", ");
-        //         }
-
-        //         //Push back empty obstacle pose
-        //         obs_poses_.poses.push_back(empty_pose);
-        //     }
-
-        //     RCLCPP_INFO(node_->get_logger(), "(PX4Safety) Initialized with the following obstacles for obstacle avoidance: %s", obstacle_str.c_str());
-        // } 
-        //else {
-            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) No obstacles provided.");
-        //}
-
-        //Check if safety visualization is enabled
-        node_->declare_parameter("safety.enable_viz", false);
-        node_->get_parameter("safety.enable_viz", enable_viz_);
-
-        if (enable_viz_ && obstacles_.size() > 0) {
-            RCLCPP_INFO(node_->get_logger(), "(PX4Safety) Safety visualization enabled.");
-
-            //Precompute post colors
-            std_msgs::msg::ColorRGBA obs_color;
-            obs_color.a = 0.5;
-            obs_color.r = 100.0;
-            obs_color.b = 0.0;
-            obs_color.g = 0.0;
-
-            //Precompute post scales
-            geometry_msgs::msg::Vector3 obs_scale;
-            obs_scale.x = obs_scale.y = rho_min_obs_;
-            obs_scale.z = 5.0;
-
-            rclcpp::Time now = node_->get_clock()->now();
-
-            for (size_t i=0; i < obstacles_.size(); i++) {
-
-                visualization_msgs::msg::Marker obs_marker;
-                obs_marker.header.stamp = now;
-                obs_marker.header.frame_id = "autonomy_park";
-                obs_marker.action = visualization_msgs::msg::Marker::ADD;
-
-                obs_marker.ns = "obstacles";
-                obs_marker.id = i;
-                obs_marker.type = visualization_msgs::msg::Marker::CYLINDER;
-                obs_marker.scale = obs_scale;
-                obs_marker.color = obs_color;
-
-                obs_marker.pose.position.x = obs_poses_.poses[i].position.x;
-                obs_marker.pose.position.y = obs_poses_.poses[i].position.y;
-                obs_marker.pose.position.z = obs_scale.z/2.0;
-                obs_marker.pose.orientation.w = 1.0;
-
-                obs_markers_.markers.push_back(obs_marker);
-            }
-
-            obs_viz_publisher_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("obstacles", rclcpp::QoS(1));
-
-            // Publish obstacle visualization at 10 Hz
-            obs_viz_timer_ = node_->create_wall_timer(100ms, std::bind(&PX4Safety::publish_obs_viz, this));
-        }
 
         //Dynamically subscribe to obstacle poses
         for (int i = 0; i < (int)obstacles_.size(); i++) {
@@ -355,4 +247,121 @@ namespace px4_safety_lib {
         //Return the safe velocity command to the controller
         return cmd_vel_out;
     }
+
+
+    void PX4Safety::visualize_obstacles() {
+
+        RCLCPP_INFO(node_->get_logger(), "(PX4Safety) Safety visualization enabled.");
+
+        //Precompute post colors
+        std_msgs::msg::ColorRGBA obs_color;
+        obs_color.a = 0.5;
+        obs_color.r = 100.0;
+        obs_color.b = 0.0;
+        obs_color.g = 0.0;
+
+        //Precompute post scales
+        geometry_msgs::msg::Vector3 obs_scale;
+        obs_scale.x = obs_scale.y = rho_min_obs_;
+        obs_scale.z = 5.0;
+
+        rclcpp::Time now = node_->get_clock()->now();
+
+        for (size_t i=0; i < obstacles_.size(); i++) {
+
+            visualization_msgs::msg::Marker obs_marker;
+            obs_marker.header.stamp = now;
+            obs_marker.header.frame_id = "autonomy_park";
+            obs_marker.action = visualization_msgs::msg::Marker::ADD;
+
+            obs_marker.ns = "obstacles";
+            obs_marker.id = i;
+            obs_marker.type = visualization_msgs::msg::Marker::CYLINDER;
+            obs_marker.scale = obs_scale;
+            obs_marker.color = obs_color;
+
+            obs_marker.pose.position.x = obs_poses_.poses[i].position.x;
+            obs_marker.pose.position.y = obs_poses_.poses[i].position.y;
+            obs_marker.pose.position.z = obs_scale.z/2.0;
+            obs_marker.pose.orientation.w = 1.0;
+
+            obs_markers_.markers.push_back(obs_marker);
+        }
+
+        obs_viz_publisher_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("obstacles", rclcpp::QoS(1));
+
+        // Publish obstacle visualization at 10 Hz
+        obs_viz_timer_ = node_->create_wall_timer(100ms, std::bind(&PX4Safety::publish_obs_viz, this));
+    }
+
+    void PX4Safety::init_parameters() {
+
+        //Check if safety visualization is enabled
+        node_->declare_parameter("safety.enable_viz", false);
+        node_->get_parameter("safety.enable_viz", enable_viz_);
+
+        node_->declare_parameter("safety.min_x", 0.0);
+        node_->declare_parameter("safety.max_x", 0.0);
+        node_->declare_parameter("safety.min_y", 0.0);
+        node_->declare_parameter("safety.max_y", 0.0);
+        node_->declare_parameter("safety.min_z", 0.0);
+        node_->declare_parameter("safety.max_z", 0.0);
+
+        node_->declare_parameter("safety.fence_a", 0.0);
+        node_->declare_parameter("safety.fence_b", 0.0);
+        node_->declare_parameter("safety.fence_p", 0.0);
+        node_->declare_parameter("safety.obs_a", 0.0);
+        node_->declare_parameter("safety.obs_b", 0.0);
+        node_->declare_parameter("safety.obs_p", 0.0);
+
+
+        if (
+            node_->get_parameter("safety.min_x", fence_min_.x) &&
+            node_->get_parameter("safety.max_x", fence_max_.x) && 
+            node_->get_parameter("safety.min_y", fence_min_.y) && 
+            node_->get_parameter("safety.max_y", fence_max_.y) && 
+            node_->get_parameter("safety.min_z", fence_min_.z) &&
+            node_->get_parameter("safety.max_z", fence_max_.z) &&
+            node_->get_parameter("safety.fence_a", fence_a_) && 
+            node_->get_parameter("safety.fence_b", fence_b_) && 
+            node_->get_parameter("safety.fence_p", fence_p_) && 
+            node_->get_parameter("safety.obs_a", obs_a_) &&
+            node_->get_parameter("safety.obs_b", obs_b_) && 
+            node_->get_parameter("safety.obs_p", obs_p_)
+        ) {
+            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)", 
+                fence_min_.x, fence_max_.x, fence_min_.y, fence_max_.y, fence_min_.z, fence_max_.z);
+            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Safety influence gains set to: Fence=(%.4f, %.4f, %.4f), Obstacle=(%.4f, %.4f, %.4f)", 
+                fence_a_, fence_b_, fence_p_, obs_a_, obs_b_, obs_p_);
+        } else {
+            RCLCPP_ERROR(node_->get_logger(), "(PX4Safety) Safety parameters not set. Exiting.");
+            rclcpp::shutdown();
+            return; 
+        }
+
+        //Get list of obstacles for collision avoidance
+        std::vector<std::string> empty_vect;
+
+        node_->declare_parameter("agent_ids", empty_vect);
+        if (node_->get_parameter("agent_ids", obstacles_)) {
+            std::string obstacle_str;
+            for (int i = 0; i < (int)obstacles_.size(); i++) {
+                geometry_msgs::msg::Pose empty_pose;
+                obstacle_str.append(obstacles_[i]);
+
+                if (i < (int)obstacles_.size()-1) {
+                    obstacle_str.append(", ");
+                }
+
+                //Push back empty obstacle pose
+                obs_poses_.poses.push_back(empty_pose);
+            }
+
+            RCLCPP_INFO(node_->get_logger(), "(PX4Safety) Initialized with the following obstacles for obstacle avoidance: %s", obstacle_str.c_str());
+        } 
+        else {
+            RCLCPP_WARN(node_->get_logger(), "(PX4Safety) No agent obstacles provided.");
+        }
+    }
+
 }
