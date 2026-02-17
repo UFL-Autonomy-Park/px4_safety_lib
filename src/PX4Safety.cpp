@@ -217,7 +217,7 @@ namespace px4_safety_lib {
         cmd_vel_out.angular.z = cmd_vel_in.angular.z;
 
         //Return the safe velocity command to the controller
-        RCLCPP_INFO(node_->get_logger(), "CMD_VEL_SAFE: %.3f, %.3f", cmd_vel_out.linear.x, cmd_vel_out.linear.y);
+        //RCLCPP_INFO(node_->get_logger(), "CMD_VEL_SAFE: %.3f, %.3f", cmd_vel_out.linear.x, cmd_vel_out.linear.y);
         return cmd_vel_out;
     }
 
@@ -297,8 +297,8 @@ namespace px4_safety_lib {
             node_->get_parameter("safety.fence_p", fence_p_) && 
             node_->get_parameter("safety.obs_a", obs_a_) &&
             node_->get_parameter("safety.obs_b", obs_b_) && 
-            node_->get_parameter("safety.obs_p", obs_p_)
-            node_->get_parameter("safety.enable_viz", enable_viz_);
+            node_->get_parameter("safety.obs_p", obs_p_)&&
+            node_->get_parameter("safety.enable_viz", enable_viz_)
         ) {
             RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)", 
                 fence_min_.x, fence_max_.x, fence_min_.y, fence_max_.y, fence_min_.z, fence_max_.z);
