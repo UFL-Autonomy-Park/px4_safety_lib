@@ -9,12 +9,8 @@ namespace px4_safety_lib {
         node_ = nullptr;
     }
 
-    void PX4Safety::initialize(rclcpp::Node *set_node) {
-
-        // set node passed from parent node
-        node_ = set_node;
-
-        RCLCPP_WARN(node_->get_logger(), "Initializing PX4 safety library.");
+    void PX4Safety::initialize(rclcpp::Node *parent_node) {
+        node_ = parent_node;
 
 
         init_parameters();
@@ -34,8 +30,7 @@ namespace px4_safety_lib {
             obs_pose_subs_.push_back(obs_sub_i);
         }
 
-        //Hardcode maximum influence magnitude for now
-        max_influence_ = 1.0;
+        RCLCPP_WARN(node_->get_logger(), "Initialized PX4 safety library.");
     }
 
     void PX4Safety::obstacle_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg, int obs_id) {
@@ -53,30 +48,6 @@ namespace px4_safety_lib {
     void PX4Safety::publish_obs_viz() {
         obs_viz_publisher_->publish(obs_markers_);
     }
-
-    // void PX4Safety::set_params(
-    //         geometry_msgs::msg::Point set_fence_min, 
-    //         geometry_msgs::msg::Point set_fence_max, 
-    //         double set_fence_a, double set_fence_b, double set_fence_p,
-    //         double set_obs_a, double set_obs_b, double set_obs_p
-    // ) {
-    //     fence_min_ = set_fence_min;
-    //     fence_max_ = set_fence_max;
-    //     fence_a_ = set_fence_a;
-    //     fence_b_ = set_fence_b;
-    //     fence_p_ = set_fence_p;
-    //     obs_a_ = set_obs_a;
-    //     obs_b_ = set_obs_b;
-    //     obs_p_ = set_obs_p;
-
-    //     char buf[128];
-    //     sprintf(buf, "(PX4 Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)\n", 
-    //         fence_min_.x, fence_max_.x, fence_min_.y, fence_max_.y, fence_min_.z, fence_max_.z);
-    //     std::cout << std::string(buf) << std::endl;
-    //     sprintf(buf, "(PX4 Safety) Influence gains set to: Fence=(a:%.4f, b:%.4f, p:%.4f), Obstacle=(a:%.4f, b:%.4f, p:%.4f)\n", 
-    //         fence_a_, fence_b_, fence_p_, obs_a_, obs_b_, obs_p_);
-    //     std::cout << std::string(buf) << std::endl;
-    // }
 
     geometry_msgs::msg::Point PX4Safety::normalize_vector(geometry_msgs::msg::Point vector_in) {
         geometry_msgs::msg::Point vector_out;
@@ -298,26 +269,23 @@ namespace px4_safety_lib {
 
     void PX4Safety::init_parameters() {
 
-        //Check if safety visualization is enabled
-        node_->declare_parameter("safety.enable_viz", false);
-        node_->get_parameter("safety.enable_viz", enable_viz_);
-
+        node_->declare_parameter("safety.max_influence", 0.0);
         node_->declare_parameter("safety.min_x", 0.0);
         node_->declare_parameter("safety.max_x", 0.0);
         node_->declare_parameter("safety.min_y", 0.0);
         node_->declare_parameter("safety.max_y", 0.0);
         node_->declare_parameter("safety.min_z", 0.0);
         node_->declare_parameter("safety.max_z", 0.0);
-
         node_->declare_parameter("safety.fence_a", 0.0);
         node_->declare_parameter("safety.fence_b", 0.0);
         node_->declare_parameter("safety.fence_p", 0.0);
         node_->declare_parameter("safety.obs_a", 0.0);
         node_->declare_parameter("safety.obs_b", 0.0);
         node_->declare_parameter("safety.obs_p", 0.0);
-
+        node_->declare_parameter("safety.enable_viz", false);
 
         if (
+            node_->get_parameter("safety.max_influence", max_influence_) &&
             node_->get_parameter("safety.min_x", fence_min_.x) &&
             node_->get_parameter("safety.max_x", fence_max_.x) && 
             node_->get_parameter("safety.min_y", fence_min_.y) && 
@@ -330,6 +298,7 @@ namespace px4_safety_lib {
             node_->get_parameter("safety.obs_a", obs_a_) &&
             node_->get_parameter("safety.obs_b", obs_b_) && 
             node_->get_parameter("safety.obs_p", obs_p_)
+            node_->get_parameter("safety.enable_viz", enable_viz_);
         ) {
             RCLCPP_WARN(node_->get_logger(), "(PX4Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)", 
                 fence_min_.x, fence_max_.x, fence_min_.y, fence_max_.y, fence_min_.z, fence_max_.z);
@@ -365,5 +334,4 @@ namespace px4_safety_lib {
             RCLCPP_WARN(node_->get_logger(), "(PX4Safety) No agent obstacles provided.");
         }
     }
-
 }

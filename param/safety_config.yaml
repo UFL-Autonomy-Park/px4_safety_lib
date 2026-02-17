@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
     safety:
+      max_influence: 1.0
       min_x: -30.0
       max_x: 31.0
       min_y: -7.8
