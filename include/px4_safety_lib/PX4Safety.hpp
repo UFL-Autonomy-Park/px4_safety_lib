@@ -50,6 +50,7 @@ namespace px4_safety_lib {
 
 
         // init functions
+        void initialize();
         void init_parameters();
         void visualize_obstacles();
 
@@ -58,7 +59,6 @@ namespace px4_safety_lib {
 
     public:
     	PX4Safety(rclcpp::Node &parent_node);
-        void initialize();
         geometry_msgs::msg::Twist compute_safe_cmd_vel(
             geometry_msgs::msg::Pose agent_pose,
             geometry_msgs::msg::Twist cmd_vel_in

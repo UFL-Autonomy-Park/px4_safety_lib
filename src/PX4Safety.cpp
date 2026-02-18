@@ -267,7 +267,6 @@ namespace px4_safety_lib {
     }
 
     void PX4Safety::init_parameters() {
-
         node().declare_parameter("safety.max_influence", 0.0);
         node().declare_parameter("safety.min_x", 0.0);
         node().declare_parameter("safety.max_x", 0.0);
@@ -296,7 +295,7 @@ namespace px4_safety_lib {
             node().get_parameter("safety.fence_p", fence_p_) && 
             node().get_parameter("safety.obs_a", obs_a_) &&
             node().get_parameter("safety.obs_b", obs_b_) && 
-            node().get_parameter("safety.obs_p", obs_p_)&&
+            node().get_parameter("safety.obs_p", obs_p_) &&
             node().get_parameter("safety.enable_viz", enable_viz_)
         ) {
             RCLCPP_WARN(node().get_logger(), "(PX4Safety) Virtual fence set to (%.4f, %.4f), (%.4f, %.4f), (%.4f, %.4f)", 
@@ -304,8 +303,7 @@ namespace px4_safety_lib {
             RCLCPP_WARN(node().get_logger(), "(PX4Safety) Safety influence gains set to: Fence=(%.4f, %.4f, %.4f), Obstacle=(%.4f, %.4f, %.4f)", 
                 fence_a_, fence_b_, fence_p_, obs_a_, obs_b_, obs_p_);
         } else {
-            RCLCPP_ERROR(node().get_logger(), "(PX4Safety) Safety parameters not set. Exiting.");
-            rclcpp::shutdown();
+            throw std::runtime_error("(PX4Safety) Safety parameters not set.");
             return; 
         }
 
@@ -315,16 +313,10 @@ namespace px4_safety_lib {
         node().declare_parameter("agent_ids", empty_vect);
         if (node().get_parameter("agent_ids", obstacles_)) {
             std::string obstacle_str;
-            for (int i = 0; i < (int)obstacles_.size(); i++) {
-                geometry_msgs::msg::Pose empty_pose;
-                obstacle_str.append(obstacles_[i]);
-
-                if (i < (int)obstacles_.size()-1) {
-                    obstacle_str.append(", ");
-                }
-
-                //Push back empty obstacle pose
-                obs_poses_.poses.push_back(empty_pose);
+            for (const auto &obs : obstacles_) {
+                obs_poses_.poses.emplace_back();
+                if(!obstacle_str.empty()) obstacle_str += ", ";
+                obstacle_str += obs;
             }
 
             RCLCPP_INFO(node().get_logger(), "(PX4Safety) Initialized with the following obstacles for obstacle avoidance: %s", obstacle_str.c_str());
