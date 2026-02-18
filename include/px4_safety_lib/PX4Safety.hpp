@@ -2,6 +2,7 @@
 #define PX4_SAFETY_HPP
 
 #include <iostream>
+#include <functional>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -17,7 +18,7 @@
 namespace px4_safety_lib {
     class PX4Safety {
     private:
-        rclcpp::Node *node_;
+        std::reference_wrapper<rclcpp::Node> node_;
 
         std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> obs_pose_subs_;
 
@@ -52,10 +53,12 @@ namespace px4_safety_lib {
         void init_parameters();
         void visualize_obstacles();
 
+        // helper to get node reference
+        inline rclcpp::Node& node() { return node_.get(); }
+
     public:
-    	PX4Safety();
-        ~PX4Safety();
-        void initialize(rclcpp::Node *set_node);
+    	PX4Safety(rclcpp::Node &parent_node);
+        void initialize();
         geometry_msgs::msg::Twist compute_safe_cmd_vel(
             geometry_msgs::msg::Pose agent_pose,
             geometry_msgs::msg::Twist cmd_vel_in
