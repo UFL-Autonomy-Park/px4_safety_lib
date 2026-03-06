@@ -43,6 +43,7 @@ namespace px4_safety_lib {
             //Update visualization marker position if enabled
             obs_markers_.markers[obs_id].pose.position.x = pose_msg->pose.position.x;
             obs_markers_.markers[obs_id].pose.position.y = pose_msg->pose.position.y;
+			obs_markers_.markers[obs_id].pose.position.z = pose_msg->pose.position.z;
         }
     }
 
@@ -230,7 +231,7 @@ namespace px4_safety_lib {
         //Precompute post scales
         geometry_msgs::msg::Vector3 obs_scale;
         obs_scale.x = obs_scale.y = 1.0;
-        obs_scale.z = 20.0;
+        obs_scale.z = 1.0;
 
         rclcpp::Time now = node().get_clock()->now();
 
@@ -243,13 +244,13 @@ namespace px4_safety_lib {
 
             obs_marker.ns = "obstacles";
             obs_marker.id = i;
-            obs_marker.type = visualization_msgs::msg::Marker::CYLINDER;
+            obs_marker.type = visualization_msgs::msg::Marker::SPHERE;
             obs_marker.scale = obs_scale;
             obs_marker.color = obs_color;
 
             obs_marker.pose.position.x = obs_poses_.poses[i].position.x;
             obs_marker.pose.position.y = obs_poses_.poses[i].position.y;
-            obs_marker.pose.position.z = obs_scale.z/2.0;
+            obs_marker.pose.position.z = obs_poses_.poses[i].position.z;
             obs_marker.pose.orientation.w = 1.0;
 
             obs_markers_.markers.push_back(obs_marker);
